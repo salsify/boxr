@@ -93,10 +93,10 @@ module Boxr
       download_file(file, version: version, follow_redirect: false)
     end
 
-    def upload_file(path_to_file, parent, name: nil, content_created_at: nil, content_modified_at: nil,
+    def upload_file(path_to_file, parent_folder, name: nil, content_created_at: nil, content_modified_at: nil,
                     preflight_check: true, send_content_md5: true)
 
-      parent_id = ensure_id(parent)
+      parent_id = ensure_id(parent_folder)
 
       filename = name ? name : File.basename(path_to_file)
       preflight_check(path_to_file, filename, parent_id) if preflight_check
@@ -119,11 +119,24 @@ module Boxr
       file_info["entries"][0]
     end
 
-    def delete_file(file, if_match: nil)
-      file_id = ensure_id(file)
-      uri = "#{FILES_URI}/#{file_id}"
-      result, response = delete(uri, if_match: if_match)
-      result
+    def upload_stream(stream, parent_folder, name, content_created_at: nil, content_modified_at: nil, preflight_check: true)
+
+      parent_id = ensure_id(parent_folder)
+
+      preflight_check_stream(name, parent_id) if preflight_check
+
+      file_info = nil
+      response = nil
+
+      attributes = {name: name, parent: {id: parent_id}}
+      attributes[:content_created_at] = content_created_at.to_datetime.rfc3339 unless content_created_at.nil?
+      attributes[:content_modified_at] = content_modified_at.to_datetime.rfc3339 unless content_modified_at.nil?
+
+      body = {attributes: Oj.dump(attributes), file: stream}
+
+      file_info, response = post(FILES_UPLOAD_URI, body, process_body: false)
+
+      file_info["entries"][0]
     end
 
     def upload_new_version_of_file(path_to_file, file, content_modified_at: nil, send_content_md5: true,
@@ -137,10 +150,26 @@ module Boxr
 
       File.open(path_to_file) do |file|
         content_md5 = send_content_md5 ? Digest::SHA1.file(file).hexdigest : nil
-        attributes = {filename: file}
+        attributes = {file: file}
         attributes[:content_modified_at] = content_modified_at.to_datetime.rfc3339 unless content_modified_at.nil?
         file_info, response = post(uri, attributes, process_body: false, content_md5: content_md5, if_match: if_match)
       end
+
+      file_info["entries"][0]
+    end
+
+    def upload_new_version_of_file_from_stream(stream, file, content_modified_at: nil, if_match: nil)
+
+      file_id = ensure_id(file)
+
+      uri = "#{UPLOAD_URI}/files/#{file_id}/content"
+
+      file_info = nil
+      response = nil
+
+      attributes = {file: stream}
+      attributes[:content_modified_at] = content_modified_at.to_datetime.rfc3339 unless content_modified_at.nil?
+      file_info, response = post(uri, attributes, process_body: false, if_match: if_match)
 
       file_info["entries"][0]
     end
@@ -160,6 +189,13 @@ module Boxr
       attributes = {:type => 'file_version', :id => file_version_id}
       new_version, res = post(uri, attributes)
       new_version
+    end
+
+    def delete_file(file, if_match: nil)
+      file_id = ensure_id(file)
+      uri = "#{FILES_URI}/#{file_id}"
+      result, response = delete(uri, if_match: if_match)
+      result
     end
 
     def delete_old_version_of_file(file, file_version, if_match: nil)
@@ -245,8 +281,12 @@ module Boxr
     def preflight_check(path_to_file, filename, parent_id)
       size = File.size(path_to_file)
 
-      #TODO: need to make sure that figuring out the filename from the path_to_file works for people using Windows
       attributes = {name: filename, parent: {id: "#{parent_id}"}, size: size}
+      body_json, res = options("#{FILES_URI}/content", attributes)
+    end
+
+    def preflight_check_stream(filename, parent_id)
+      attributes = {name: filename, parent: {id: "#{parent_id}"}}
       body_json, res = options("#{FILES_URI}/content", attributes)
     end
 

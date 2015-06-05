@@ -130,6 +130,16 @@ describe Boxr::Client do
 
   #rake spec SPEC_OPTS="-e \"invokes file operations"\"
   it "invokes file operations" do
+    puts "upload a stream"
+    stream = StringIO.new("This is the contents of a stream based file")
+    new_file = BOX_CLIENT.upload_stream(stream, @test_folder, "test stream.txt")
+    expect(new_file.name).to eq("test stream.txt")
+
+    puts "upload new version of file from stream"
+    stream = StringIO.new("This is the new contents of a stream based file")
+    new_version = BOX_CLIENT.upload_new_version_of_file_from_stream(stream, new_file)
+    expect(new_version.id).to eq(new_file.id)
+
     puts "upload a file"
     new_file = BOX_CLIENT.upload_file("./spec/test_files/#{TEST_FILE_NAME}", @test_folder)
     expect(new_file.name).to eq(TEST_FILE_NAME)
