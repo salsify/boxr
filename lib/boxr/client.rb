@@ -181,7 +181,7 @@ module Boxr
 
       res = with_auto_token_refresh do
         headers = standard_headers
-        BOX_CLIENT.options(uri, body: Oj.dump(body), header: headers)
+        BOX_CLIENT.options(uri, body: body.nil? ? nil : Oj.dump(body), header: headers)
       end
 
       check_response_status(res, success_codes)
