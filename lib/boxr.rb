@@ -47,6 +47,7 @@ module Boxr
   BOX_CLIENT = HTTPClient.new
   BOX_CLIENT.cookie_manager = nil
   BOX_CLIENT.send_timeout = 3600 #one hour; needed for lengthy uploads
+  BOX_CLIENT.receive_timeout = 3600 # for long polling
   BOX_CLIENT.agent_name = "Boxr/#{Boxr::VERSION}"
   BOX_CLIENT.transparent_gzip_decompression = true 
 
